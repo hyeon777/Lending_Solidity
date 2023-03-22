@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
-contract IPriceOracle {
-    constructor(address dream, address _usdc) {
-    }
-}
-
-contract DreamAcademyLending is ERC20{
+contract DreamAcademyLending {
     uint256 public number;
     ERC20 usdc;
+    uint256 usdc_amount;
 
     mapping (address => uint256) loan_ledger;
     mapping (address => mapping (address => uint256)) deposit_ledger;
@@ -18,7 +14,14 @@ contract DreamAcademyLending is ERC20{
     constructor(address _oracle, address _usdc) {
         usdc = ERC20(_usdc);
     }
-    function deposit(address tokenAddress, uint256 amount) external{
+    function initializeLendingProtocol(address _usdc_) public payable {
+        usdc.transferFrom(msg.sender, address(this), msg.value);
+        usdc_update();
+
+        require(usdc_amount == msg.value, "Invalid Initialization");
+        
+    }
+    function deposit(address tokenAddress, uint256 amount) external payable{
         require(tokenAddress != address(0));
         if(tokenAddress == address(usdc)){
             usdc.transferFrom(msg.sender, address(this), amount);
@@ -50,6 +53,10 @@ contract DreamAcademyLending is ERC20{
         require(deposit_ledger[msg.sender][tokenAddress] >= amount);
         ERC20(tokenAddress).transfer(msg.sender, amount);
         deposit_ledger[msg.sender][tokenAddress] -= amount;
+    }
+
+    function usdc_update() public {
+        usdc_amount = usdc.balanceOf(address(this));
     }
 
 }
