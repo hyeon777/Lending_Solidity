@@ -22,10 +22,7 @@ contract DreamAcademyLending {
     }
     function initializeLendingProtocol(address _usdc_) public payable {
         usdc.transferFrom(msg.sender, address(this), msg.value);
-        usdc_update();
-
-        require(usdc_amount == msg.value, "Invalid Initialization");
-        
+        usdc_update();   
     }
     function deposit(address tokenAddress, uint256 amount) external payable{
         if(tokenAddress == address(0)){
@@ -33,21 +30,22 @@ contract DreamAcademyLending {
             deposit_ledger[msg.sender].eth_amount += amount;
         }
         else{
-            require(amount>0, "amount must be more than zero");
+            require(amount > 0, "amount must be more than zero");
             ERC20(tokenAddress).transferFrom(msg.sender, address(this), amount);
             deposit_ledger[msg.sender].usdc_amount += amount;
+            usdc_update();
         }
 
     }
     function borrow(address tokenAddress, uint256 amount) external {
         require(tokenAddress == address(usdc));
         require(usdc.balanceOf(address(this)) >= amount);
-        ERC20(tokenAddress).transfer(msg.sender, amount);
+        usdc.transfer(msg.sender, amount);
         loan_ledger[msg.sender] += amount;
-
     }
     function repay(address tokenAddress, uint256 amount) external {
-        require(loan_ledger[msg.sender] <= amount);
+        require(tokenAddress == address(usdc));
+        require(loan_ledger[msg.sender] >= amount);
         ERC20(tokenAddress).transferFrom(msg.sender, address(this), amount);
         loan_ledger[msg.sender] -= amount;
     }
@@ -57,13 +55,13 @@ contract DreamAcademyLending {
     function withdraw(address tokenAddress, uint256 amount) external {
         if(tokenAddress == address(0)){
             require(deposit_ledger[msg.sender].eth_amount >= amount);
-            ERC20(tokenAddress).transfer(msg.sender, amount);
             deposit_ledger[msg.sender].eth_amount -= amount;
+            msg.sender.call{value: amount}("");
         }
         else{
             require(deposit_ledger[msg.sender].usdc_amount >= amount);
-            usdc.transfer(msg.sender, amount);
             deposit_ledger[msg.sender].usdc_amount -= amount;
+            usdc.transfer(msg.sender, amount);
         }
     }
 
