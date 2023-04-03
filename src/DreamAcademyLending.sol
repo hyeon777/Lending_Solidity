@@ -2,16 +2,22 @@
 pragma solidity ^0.8.13;
 
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "./IPriceOracle.sol";
 
 contract DreamAcademyLending {
     uint256 public number;
     ERC20 usdc;
     uint256 usdc_amount;
-
     mapping (address => uint256) loan_ledger;
-    mapping (address => mapping (address => uint256)) deposit_ledger;
+    mapping (address => deposit_) deposit_ledger;
 
-    constructor(address _oracle, address _usdc) {
+    struct deposit_{
+        uint usdc_amount;
+        uint eth_amount;
+    }
+
+    constructor(IPriceOracle _oracle, address _usdc) {
+        IPriceOracle IPO = IPriceOracle(_oracle);
         usdc = ERC20(_usdc);
     }
     function initializeLendingProtocol(address _usdc_) public payable {
@@ -22,15 +28,14 @@ contract DreamAcademyLending {
         
     }
     function deposit(address tokenAddress, uint256 amount) external payable{
-        require(tokenAddress != address(0));
-        if(tokenAddress == address(usdc)){
-            usdc.transferFrom(msg.sender, address(this), amount);
-            deposit_ledger[msg.sender][tokenAddress] += amount;
+        if(tokenAddress == address(0)){
+            require(amount == msg.value && amount > 0, "error with value");
+            deposit_ledger[msg.sender].eth_amount += amount;
         }
         else{
+            require(amount>0, "amount must be more than zero");
             ERC20(tokenAddress).transferFrom(msg.sender, address(this), amount);
-            deposit_ledger[msg.sender][tokenAddress] += amount;
-
+            deposit_ledger[msg.sender].usdc_amount += amount;
         }
 
     }
@@ -50,13 +55,23 @@ contract DreamAcademyLending {
 
     }
     function withdraw(address tokenAddress, uint256 amount) external {
-        require(deposit_ledger[msg.sender][tokenAddress] >= amount);
-        ERC20(tokenAddress).transfer(msg.sender, amount);
-        deposit_ledger[msg.sender][tokenAddress] -= amount;
+        if(tokenAddress == address(0)){
+            require(deposit_ledger[msg.sender].eth_amount >= amount);
+            ERC20(tokenAddress).transfer(msg.sender, amount);
+            deposit_ledger[msg.sender].eth_amount -= amount;
+        }
+        else{
+            require(deposit_ledger[msg.sender].usdc_amount >= amount);
+            usdc.transfer(msg.sender, amount);
+            deposit_ledger[msg.sender].usdc_amount -= amount;
+        }
     }
 
     function usdc_update() public {
         usdc_amount = usdc.balanceOf(address(this));
     }
 
+    function getAccruedSupplyAmount(address _addr) external payable returns (uint256) {
+
+    }
 }
