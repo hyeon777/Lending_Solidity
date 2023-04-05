@@ -44,7 +44,14 @@ contract DreamAcademyLending {
     }
     function borrow(address tokenAddress, uint256 amount) external {
         require(tokenAddress == address(usdc), "please check your tokenAddress again");
-        require(usdc.balanceOf(address(this)) >= amount, "Too much usdc required");
+        //require(usdc.balanceOf(address(this)) >= amount, "Too much usdc required");
+
+        uint usdc_price = IPO.getPrice(address(0x0));
+        uint eth_price = IPO.getPrice(address(usdc));
+        uint borrow_enable = (deposit_ledger[msg.sender].eth_amount * usdc_price / eth_price / 2) - loan_ledger[msg.sender];
+
+        require(borrow_enable >= amount, "amount too much");
+
         usdc.transfer(msg.sender, amount);
         loan_ledger[msg.sender] += amount;
         usdc_update();
