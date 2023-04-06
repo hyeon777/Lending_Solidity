@@ -55,21 +55,18 @@ contract DreamAcademyLending {
         usdc_update();
     }
     function borrow_amount(uint amount) public returns (uint) {
-        uint eth_price = IPO.getPrice(address(0));
-        uint usdc_price = IPO.getPrice(address(usdc));
+        (uint eth_price, uint usdc_price) = Price_Update();
 
         uint deposit_value = EtherToUsdc(deposit_ledger[msg.sender].eth_amount);
         return (deposit_value / 2) - loan_ledger[msg.sender];
     }
     function EtherToUsdc(uint amount) public returns (uint) {
-        uint eth_price = IPO.getPrice(address(0));
-        uint usdc_price = IPO.getPrice(address(usdc));
+        (uint eth_price, uint usdc_price) = Price_Update();
 
         return amount * eth_price / usdc_price;
     }
     function UsdcToEther(uint amount) public returns (uint) {
-        uint eth_price = IPO.getPrice(address(0));
-        uint usdc_price = IPO.getPrice(address(usdc));
+        (uint eth_price, uint usdc_price) = Price_Update();
 
         return amount * usdc_price / eth_price;
     }
@@ -81,10 +78,23 @@ contract DreamAcademyLending {
         usdc_update();
     }
     function liquidate(address user, address tokenAddress, uint256 amount) external payable{ 
+        (uint eth_price, uint usdc_price) = Price_Update();
         require(amount>0, "amount should be more than zero");
-
-
         require(EtherToUsdc(deposit_ledger[user].eth_amount)*75/100 <= loan_ledger[user], "liquidation is not available yet");
+        uint LIMIT_RATIO;
+
+        if(UsdcToEther(loan_ledger[user]*usdc_price) < 100){
+            LIMIT_RATIO = 100;
+        }
+        else{
+            LIMIT_RATIO = 25;
+        }
+        if(tokenAddress == address(usdc)){
+            require(amount <= loan_ledger[user] *  LIMIT_RATIO / 100);
+        }
+        else if(tokenAddress == address(0)){
+            require(EtherToUsdc(amount) <= loan_ledger[user] * LIMIT_RATIO / 100);
+        }
         usdc.transferFrom(msg.sender, address(this), amount);
         uint loan_amount = EtherToUsdc(loan_ledger[user]);
         uint ETH_Amount = loan_ledger[user] * amount / loan_amount;
@@ -93,8 +103,7 @@ contract DreamAcademyLending {
         msg.sender.call{value: ETH_Amount}("");
     }
     function withdraw(address tokenAddress, uint256 amount) external {
-        uint ETH_Price = IPO.getPrice(address(0));
-        uint usdc_Price = IPO.getPrice(address(usdc));
+        (uint ETH_Price, uint usdc_Price) = Price_Update();
 
         if(tokenAddress == address(0)){  //ETH
             require(deposit_ledger[msg.sender].eth_amount >= amount);
@@ -114,6 +123,12 @@ contract DreamAcademyLending {
 
     function usdc_update() public {
         usdc_amount = usdc.balanceOf(address(this));
+    }
+    function Price_Update() public returns (uint, uint){
+        uint ETH_Price = IPO.getPrice(address(0));
+        uint usdc_Price = IPO.getPrice(address(usdc));
+        
+        return (ETH_Price, usdc_Price);
     }
 
     function getAccruedSupplyAmount(address _addr) external payable returns (uint256) {
