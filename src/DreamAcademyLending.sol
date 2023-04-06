@@ -16,6 +16,7 @@ contract DreamAcademyLending {
     IPriceOracle IPO;
     mapping (address => uint256) loan_ledger;
     mapping (address => deposit_) deposit_ledger;
+    uint borrow_block;
     struct deposit_{
         uint usdc_amount;
         uint eth_amount;
@@ -45,13 +46,14 @@ contract DreamAcademyLending {
     function borrow(address tokenAddress, uint256 amount) external {
         require(tokenAddress == address(usdc), "please check your tokenAddress again");
         require(usdc.balanceOf(address(this)) >= amount, "We don't have that much usdc required");
+        interest_update(msg.sender);
 
         uint available_amount = borrow_amount(amount);
-
         require(available_amount >= amount, "amount too much");
         usdc.transfer(msg.sender, amount);
         loan_ledger[msg.sender] += amount;
-
+        console.log("fdsa", block.number, loan_ledger[msg.sender]);
+        borrow_block = block.number;
         usdc_update();
     }
     function borrow_amount(uint amount) public returns (uint) {
@@ -104,6 +106,7 @@ contract DreamAcademyLending {
     }
     function withdraw(address tokenAddress, uint256 amount) external {
         (uint ETH_Price, uint usdc_Price) = Price_Update();
+        interest_update(msg.sender);
 
         if(tokenAddress == address(0)){  //ETH
             require(deposit_ledger[msg.sender].eth_amount >= amount);
@@ -133,5 +136,11 @@ contract DreamAcademyLending {
 
     function getAccruedSupplyAmount(address _addr) external payable returns (uint256) {
 
+    }
+    function interest_update(address user) public returns (uint){
+        if(borrow_block < block.number && block.number != 1){
+            uint interest = (block.number - borrow_block) * loan_ledger[user] * 1001 / 1000 / 86400;
+            loan_ledger[user] += interest;
+        }
     }
 }
