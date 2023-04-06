@@ -55,20 +55,20 @@ contract DreamAcademyLending {
         usdc_update();
     }
     function borrow_amount(uint amount) public returns (uint) {
-        uint eth_price = IPO.getPrice(address(0x0));
+        uint eth_price = IPO.getPrice(address(0));
         uint usdc_price = IPO.getPrice(address(usdc));
 
         uint deposit_value = EtherToUsdc(deposit_ledger[msg.sender].eth_amount);
         return (deposit_value / 2) - loan_ledger[msg.sender];
     }
     function EtherToUsdc(uint amount) public returns (uint) {
-        uint eth_price = IPO.getPrice(address(0x0));
+        uint eth_price = IPO.getPrice(address(0));
         uint usdc_price = IPO.getPrice(address(usdc));
 
         return amount * eth_price / usdc_price;
     }
     function UsdcToEther(uint amount) public returns (uint) {
-        uint eth_price = IPO.getPrice(address(0x0));
+        uint eth_price = IPO.getPrice(address(0));
         uint usdc_price = IPO.getPrice(address(usdc));
 
         return amount * usdc_price / eth_price;
@@ -76,18 +76,16 @@ contract DreamAcademyLending {
     function repay(address tokenAddress, uint256 amount) external {
         require(tokenAddress == address(usdc), "please check your tokenAddress again");
         require(loan_ledger[msg.sender] >= amount, "please check your token amount");
-        ERC20(tokenAddress).transferFrom(msg.sender, address(this), amount);
+        usdc.transferFrom(msg.sender, address(this), amount);
         loan_ledger[msg.sender] -= amount;
         usdc_update();
     }
-    function liquidate(address user, address tokenAddress, uint256 amount) external payable{   //usdc로 단위로 모든 계산 통일
+    function liquidate(address user, address tokenAddress, uint256 amount) external payable{ 
         require(amount>0, "amount should be more than zero");
-        uint ETH_Price = IPO.getPrice(address(0));
-        uint usdc_Price = IPO.getPrice(address(usdc));
+
 
         require(EtherToUsdc(deposit_ledger[user].eth_amount)*75/100 <= loan_ledger[user], "liquidation is not available yet");
         usdc.transferFrom(msg.sender, address(this), amount);
-        console.log(deposit_ledger[user].eth_amount*ETH_Price*75/100, UsdcToEther(loan_ledger[user]));
         uint loan_amount = EtherToUsdc(loan_ledger[user]);
         uint ETH_Amount = loan_ledger[user] * amount / loan_amount;
 
@@ -95,8 +93,14 @@ contract DreamAcademyLending {
         msg.sender.call{value: ETH_Amount}("");
     }
     function withdraw(address tokenAddress, uint256 amount) external {
+        uint ETH_Price = IPO.getPrice(address(0));
+        uint usdc_Price = IPO.getPrice(address(usdc));
+
         if(tokenAddress == address(0)){  //ETH
             require(deposit_ledger[msg.sender].eth_amount >= amount);
+            console.log(UsdcToEther(loan_ledger[msg.sender]));
+            console.log((deposit_ledger[msg.sender].eth_amount-amount)*75/100);
+            require((deposit_ledger[msg.sender].eth_amount-amount)*75/100 >= UsdcToEther(loan_ledger[msg.sender]));
             deposit_ledger[msg.sender].eth_amount -= amount;
             msg.sender.call{value: amount}("");
         }
